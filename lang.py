@@ -2,7 +2,7 @@
 TRANSLATIONS = {
     "IT": {
         "title": "📻 Navidrome Radio Manager",
-        "welcome": "👋 Benvenuto! Inserisci i parametri di ricerca nella sidebar.",
+        "welcome": "👋 Benvenuto! Inserisci i parametri di ricerca qui sopra.",
         "search_header": "🔍 Cerca Stazioni",
         "mode": "Modalità:",
         "name_label": "Nome della radio:",
@@ -64,7 +64,7 @@ TRANSLATIONS = {
     },
     "EN": {
         "title": "📻 Navidrome Radio Manager",
-        "welcome": "👋 Welcome! Enter your search parameters in the sidebar.",
+        "welcome": "👋 Welcome! Enter your search parameters above.",
         "search_header": "🔍 Search Stations",
         "mode": "Mode:",
         "name_label": "Radio Name:",

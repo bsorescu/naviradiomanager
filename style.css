@@ -373,7 +373,9 @@ div.stButton>button {
 
 /* 1. Sidebar-ul dispare complet — controalele traiesc in main */
 [data-testid="stSidebar"],
-[data-testid="stSidebarCollapsedControl"] {
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stExpandSidebarButton"] {
   display: none !important;
 }
 
