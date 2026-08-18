@@ -436,14 +436,7 @@ div[data-baseweb="base-input"] > input {
    ========================================================== */
 
 /* Butoane-icon (play/details) de dimensiunea siglei, in randul ei */
-[class*="st-key-play_"] button {
-  padding: 0.25rem 0 !important;
-  min-height: 44px !important;
-  width: 44px !important;
-  margin-left: auto !important;   /* lipit de marginea dreapta a coloanei */
-  font-size: 1.35rem !important;
-  line-height: 1 !important;
-}
+
 
 /* Pe mobil, randurile cu imagine (headerul cardului) raman ORIZONTALE —
    doar randurile de formular se stivuiesc. Numele ia spatiul ramas. */
@@ -465,18 +458,9 @@ div[data-baseweb="base-input"] > input {
   }
 }
 
-/* Iteratia 5 (2026-08-18): play FARA chenar — doar simbolul; hover viu */
-[class*="st-key-play_"] button {
-  border: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  transition: all 0.15s ease !important;
-}
-[class*="st-key-play_"] button:hover {
-  transform: scale(1.25);
-  filter: drop-shadow(0 0 6px rgba(255, 75, 31, 0.8));
-  background: transparent !important;
-}
+
+
+
 
 /* Filtrul local: distinct de un input obisnuit, cu aer de bara de filtru */
 [class*="st-key-filter_local"] input {
@@ -488,19 +472,9 @@ div[data-baseweb="base-input"] > input {
   border-color: #cd212a !important;
 }
 
-/* „More…" — arata ca un link, langa restul infoului */
-[class*="st-key-more_"] button {
-  color: #4da3ff !important;
-  padding: 0 !important;
-  min-height: 0 !important;
-  border: none !important;
-  background: transparent !important;
-  font-size: 0.9rem !important;
-}
-[class*="st-key-more_"] button:hover {
-  text-decoration: underline !important;
-  color: #7fbfff !important;
-}
+
+
+
 
 /* Delete pe pagina de detalii: clar rosu, actiune distructiva */
 [class*="st-key-del_btn_"] button {
@@ -512,3 +486,18 @@ div[data-baseweb="base-input"] > input {
   background-color: #cc0000 !important;
   box-shadow: 0 2px 10px rgba(204, 0, 0, 0.5) !important;
 }
+
+/* Iteratia 6: hover contrastant pe TOATE butoanele + link-ul de card */
+.stButton button:hover {
+  color: #ffffff !important;
+  border-color: #ff4b1f !important;
+  background-color: rgba(204, 0, 0, 0.45) !important;
+}
+.stButton button[kind="primary"]:hover {
+  background-color: #ff4b1f !important;
+}
+a.radio-link:hover span {
+  text-decoration: underline !important;
+  color: #ffffff !important;
+}
+a.radio-link { cursor: pointer !important; }

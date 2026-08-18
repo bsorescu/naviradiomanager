@@ -189,6 +189,57 @@ def quality_badge(codec, bitrate):
     return "orange", "Low Quality"
 
 
+
+def play_widget(stream_url: str):
+    """Player per card: butonul și <audio> stau în ACELAȘI document
+    (iframe-ul componentei), deci click-ul e gest valid pentru autoplay —
+    pornește instant, inclusiv în incognito. La pornire, oprește orice alt
+    player din pagină (un singur stream activ)."""
+    esc = stream_url.replace('"', "%22")
+    components.html(f"""
+<div style="display:flex;justify-content:flex-end;align-items:center;height:52px">
+  <button id="pb" onclick="tgl()" title="Play/Pause" style="
+      width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;
+      background:linear-gradient(145deg,#ff4b1f,#cc0000);color:#fff;
+      font-size:17px;line-height:1;display:flex;align-items:center;
+      justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);
+      transition:all .15s ease">▶</button>
+  <audio id="pa" src="{esc}" preload="none"></audio>
+</div>
+<style>
+  #pb:hover {{ transform:scale(1.12); box-shadow:0 3px 14px rgba(255,75,31,.7); }}
+  #pb.on {{ background:linear-gradient(145deg,#00b85c,#008c45); }}
+</style>
+<script>
+const b=document.getElementById('pb'), a=document.getElementById('pa');
+function stopOthers() {{
+  try {{
+    window.parent.document.querySelectorAll('iframe').forEach(function(f) {{
+      try {{
+        if (f.contentWindow === window) return;
+        const d = f.contentDocument; if (!d) return;
+        d.querySelectorAll('audio').forEach(function(x) {{ if (!x.paused) x.pause(); }});
+        const ob = d.getElementById('pb');
+        if (ob) {{ ob.textContent = '▶'; ob.classList.remove('on'); }}
+      }} catch (e) {{}}
+    }});
+  }} catch (e) {{}}
+}}
+function tgl() {{
+  if (a.paused) {{
+    stopOthers();
+    a.play().catch(function() {{}});
+    b.textContent = '⏸'; b.classList.add('on');
+  }} else {{
+    a.pause();
+    b.textContent = '▶'; b.classList.remove('on');
+  }}
+}}
+a.addEventListener('ended', function() {{ b.textContent='▶'; b.classList.remove('on'); }});
+</script>
+""", height=56)
+
+
 def render_my_radios_list(filter_query: str = ""):
     """Lista de stații — randată pe pagina PRINCIPALĂ (stage 0) și în modul
     de gestiune (aceeași sursă, zero duplicare). Card: [siglă | nume+info |
@@ -214,25 +265,26 @@ def render_my_radios_list(filter_query: str = ""):
     stream_urls = tuple(
         fix_url(r.get('streamUrl', r.get('url', ''))) for r in radios)
 
-    if 'playing_id' not in st.session_state:
-        st.session_state.playing_id = None
-
     for idx, radio in enumerate(radios):
         rid = radio.get('id')
         stream_url = stream_urls[idx]
         m = meta.get(stream_url, {})
         hp = radio.get('homePageUrl', '').strip()
         icona = f"https://www.google.com/s2/favicons?sz=64&domain={hp}" if hp else None
-        is_playing = st.session_state.playing_id == rid
 
         with st.container(border=True):
-            row = st.columns([1, 8, 1], vertical_alignment="center")
+            row = st.columns([8, 1], vertical_alignment="center")
             with row[0]:
-                if icona:
-                    st.image(icona, width=40)
-                else:
-                    st.markdown("### 📻")
-            with row[1]:
+                # sigla + numele = link de detalii (?radio=<id>, același tab)
+                logo_html = (f'<img src="{icona}" width="40" style="vertical-align:middle;'
+                             f'border-radius:8px;margin-right:10px">' if icona
+                             else '<span style="font-size:1.6rem;margin-right:10px;vertical-align:middle">📻</span>')
+                st.markdown(
+                    f'<a href="?radio={rid}" target="_self" class="radio-link" '
+                    f'style="text-decoration:none">{logo_html}'
+                    f'<span style="font-weight:700;color:#fafafa;font-size:1.05rem">'
+                    f'{radio.get("name", "Unknown")}</span></a>',
+                    unsafe_allow_html=True)
                 codec = m.get("codec", "N/D")
                 br = m.get("bitrate", 0)
                 q_color, q_label = quality_badge(codec, br)
@@ -243,30 +295,9 @@ def render_my_radios_list(filter_query: str = ""):
                 if hp:
                     info_bits.append(
                         f"🔗 [{'Sito' if LANG_CODE == 'IT' else 'Site'}]({hp})")
-                st.markdown(f"**{radio.get('name', 'Unknown')}**")
-                info_cols = st.columns([6, 1], vertical_alignment="center")
-                with info_cols[0]:
-                    st.markdown(" · ".join(info_bits))
-                with info_cols[1]:
-                    # „More…" — link, nu buton (type=tertiary, Streamlit ≥1.41)
-                    if st.button("More…" if LANG_CODE != "IT" else "Altro…",
-                                 key=f"more_{rid}", type="tertiary"):
-                        select_radio_for_details(radio)
-                        st.rerun()
-            with row[2]:
-                if st.button("⏹" if is_playing else "▶️", key=f"play_{rid}",
-                             help="Stop" if is_playing else "Play",
-                             use_container_width=True):
-                    st.session_state.playing_id = None if is_playing else rid
-                    st.rerun()
-
-            if is_playing:
-                st.audio(stream_url, format="audio/mp3", autoplay=True)
-                components.html("""<script>
-setTimeout(function(){
-  var a = window.parent.document.querySelectorAll('audio');
-  if (a.length) { a[a.length-1].play().catch(function(){}); }
-}, 400);</script>""", height=0)
+                st.markdown(" · ".join(info_bits))
+            with row[1]:
+                play_widget(stream_url)
 
 
 def sync_to_sel():
@@ -292,6 +323,7 @@ if 'view_mode' not in st.session_state:
     st.session_state.view_mode = "search"
 if 'add_mode' not in st.session_state:
     st.session_state.add_mode = False
+
 if 'my_radios' not in st.session_state:
     st.session_state.my_radios = []
 if 'selected_radio' not in st.session_state:
@@ -569,6 +601,17 @@ st.markdown("<style>[data-testid='stVerticalBlock'] > div {transition: none !imp
 # fără sidebar; logică identică (aceleași chei de sesiune/callbacks)
 # ============================================================
 lista_ufficiale = [""] + get_all_countries()
+
+# Link-urile de detalii din carduri navighează cu ?radio=<id> (sesiune nouă)
+_qp_radio = st.query_params.get("radio")
+if _qp_radio:
+    if not st.session_state.my_radios:
+        st.session_state.my_radios = get_all_my_radios_with_details()
+    _match = next((r for r in st.session_state.my_radios
+                   if r.get('id') == _qp_radio), None)
+    st.query_params.clear()
+    if _match:
+        select_radio_for_details(_match)
 
 header_cols = st.columns([3, 1], vertical_alignment="center")
 with header_cols[0]:
