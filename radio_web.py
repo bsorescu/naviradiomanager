@@ -197,7 +197,7 @@ def play_widget(stream_url: str):
     player din pagină (un singur stream activ)."""
     esc = stream_url.replace('"', "%22")
     components.html(f"""
-<div style="display:flex;justify-content:flex-end;align-items:center;height:52px">
+<div style="display:flex;justify-content:flex-end;align-items:center;height:64px;padding-right:6px">
   <button id="pb" onclick="tgl()" title="Play/Pause" style="
       width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;
       background:linear-gradient(145deg,#ff4b1f,#cc0000);color:#fff;
@@ -237,7 +237,7 @@ function tgl() {{
 }}
 a.addEventListener('ended', function() {{ b.textContent='▶'; b.classList.remove('on'); }});
 </script>
-""", height=56)
+""", height=68)
 
 
 def render_my_radios_list(filter_query: str = ""):
