@@ -225,7 +225,7 @@ def render_my_radios_list(filter_query: str = ""):
         is_playing = st.session_state.playing_id == rid
 
         with st.container(border=True):
-            row = st.columns([1, 7, 1, 1], vertical_alignment="center")
+            row = st.columns([1, 7, 1, 1, 1], vertical_alignment="center")
             with row[0]:
                 if icona:
                     st.image(icona, width=40)
@@ -256,6 +256,38 @@ def render_my_radios_list(filter_query: str = ""):
                              use_container_width=True):
                     select_radio_for_details(radio)
                     st.rerun()
+            with row[4]:
+                if st.button("🗑", key=f"delx_{rid}",
+                             help="Elimina" if LANG_CODE == "IT" else "Delete",
+                             use_container_width=True):
+                    st.session_state[f"confirm_del_{rid}"] = True
+                    st.rerun()
+
+            if st.session_state.get(f"confirm_del_{rid}"):
+                st.warning("⚠️ " + (f"Elimini «{radio.get('name')}»?" if LANG_CODE == "IT"
+                                    else f"Delete “{radio.get('name')}”?"))
+                ccols = st.columns(2)
+                with ccols[0]:
+                    if st.button("✅ " + ("Conferma" if LANG_CODE == "IT" else "Confirm"),
+                                 key=f"delok_{rid}", use_container_width=True, type="primary"):
+                        res = delete_radio(rid)
+                        st.session_state[f"confirm_del_{rid}"] = False
+                        if res.get('subsonic-response', {}).get('status') == 'ok':
+                            if st.session_state.playing_id == rid:
+                                st.session_state.playing_id = None
+                            st.cache_data.clear()
+                            st.session_state.my_radios = get_all_my_radios_with_details()
+                            st.toast("🗑️ " + ("Eliminata" if LANG_CODE == "IT" else "Deleted"))
+                        else:
+                            err = res.get('subsonic-response', {}).get('error', {}).get(
+                                'message', 'Errore sconosciuto' if LANG_CODE == 'IT' else 'Unknown error')
+                            st.error(f"❌ {err}")
+                        st.rerun()
+                with ccols[1]:
+                    if st.button("❌ " + ("Annulla" if LANG_CODE == "IT" else "Cancel"),
+                                 key=f"delno_{rid}", use_container_width=True):
+                        st.session_state[f"confirm_del_{rid}"] = False
+                        st.rerun()
 
             if is_playing:
                 st.audio(stream_url, format="audio/mp3", autoplay=True)
