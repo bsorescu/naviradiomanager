@@ -6,7 +6,7 @@ import hashlib
 import os
 import time
 from lang import TRANSLATIONS
-from urllib.parse import unquote, quote
+from urllib.parse import unquote, quote, urlparse, parse_qs
 st.set_page_config(
     page_title="NaviRadioManager",
     page_icon="📻",
@@ -199,6 +199,17 @@ def fmt_listen_time(secs: int) -> str:
     return f"{secs // 3600}h{(secs % 3600) // 60:02d}m"
 
 
+def unwrap_relay(url: str) -> str:
+    """Stațiile rescrise spre releu au streamUrl = .../relay?u=<original>.
+    Pentru probe de calitate, chei de contor și redare directă (pagina pe
+    http) folosim ORIGINALUL dinăuntru."""
+    if "/relay?u=" in url:
+        inner = parse_qs(urlparse(url).query).get("u", [""])[0]
+        if inner:
+            return inner
+    return url
+
+
 def quality_badge(codec, bitrate):
     """Etichetă onestă: AAC(+) la același bitrate sună ca ~2× MP3."""
     if not bitrate:
@@ -306,13 +317,13 @@ def render_my_radios_list(filter_query: str = ""):
     # stabilă indiferent de filtrul tastat (altfel fiecare literă ar
     # redeclanșa sondarea tuturor stațiilor).
     full_urls = tuple(
-        fix_url(r.get('streamUrl', r.get('url', ''))) for r in all_radios)
+        unwrap_relay(fix_url(r.get('streamUrl', r.get('url', '')))) for r in all_radios)
     meta = get_stations_meta(full_urls) if all_radios else {}
 
     counts = get_play_counts()
 
     def _rank(r):
-        c = counts.get(fix_url(r.get('streamUrl', r.get('url', ''))),
+        c = counts.get(unwrap_relay(fix_url(r.get('streamUrl', r.get('url', '')))),
                        {"plays": 0, "seconds": 0})
         # ponderarea principală = TIMPUL ascultat; pornirile departajează
         return (-c["seconds"], -c["plays"], r.get('name', '').lower())
@@ -327,7 +338,7 @@ def render_my_radios_list(filter_query: str = ""):
         return
 
     stream_urls = tuple(
-        fix_url(r.get('streamUrl', r.get('url', ''))) for r in radios)
+        unwrap_relay(fix_url(r.get('streamUrl', r.get('url', '')))) for r in radios)
 
     for idx, radio in enumerate(radios):
         rid = radio.get('id')
