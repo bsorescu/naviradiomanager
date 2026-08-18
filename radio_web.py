@@ -6,7 +6,7 @@ import hashlib
 import os
 import time
 from lang import TRANSLATIONS
-from urllib.parse import unquote
+from urllib.parse import unquote, quote
 st.set_page_config(
     page_title="NaviRadioManager",
     page_icon="📻",
@@ -177,6 +177,18 @@ def get_stations_meta(urls: tuple):
         return dict(zip(urls, ex.map(probe, urls)))
 
 
+@st.cache_data(ttl=30, show_spinner=False)
+def get_play_counts():
+    """Contoarele de ascultări de la radio-relay (persistente pe disc).
+    Cheia = streamUrl-ul exact; lipsa releului = dict gol, lista rămâne
+    ordonată alfabetic — degradare, nu eroare."""
+    try:
+        r = requests.get("http://radio-relay:8502/relay/counts", timeout=4)
+        return r.json()
+    except Exception:
+        return {}
+
+
 def quality_badge(codec, bitrate):
     """Etichetă onestă: AAC(+) la același bitrate sună ca ~2× MP3."""
     if not bitrate:
@@ -197,6 +209,7 @@ def play_widget(stream_url: str):
     https = mixed content blocat de Chrome — încercăm automat varianta
     https a stream-ului; dacă nici ea nu există, statusul spune ⚠️."""
     esc = stream_url.replace('"', "%22")
+    relay = "/relay?u=" + quote(stream_url, safe="")
     components.html(f"""
 <div style="display:flex;flex-direction:column;align-items:flex-end;
             justify-content:center;height:84px;padding-right:6px;gap:4px">
@@ -208,7 +221,7 @@ def play_widget(stream_url: str):
       transition:all .15s ease;flex:0 0 auto">▶</button>
   <span id="ps" style="font:10px sans-serif;color:#9fb9c4;white-space:nowrap;
       min-height:12px;text-align:right"></span>
-  <audio id="pa" src="{esc}" preload="none"></audio>
+  <audio id="pa" preload="none"></audio>
 </div>
 <style>
   #pb:hover {{ transform:scale(1.1); box-shadow:0 3px 14px rgba(255,75,31,.7); }}
@@ -217,6 +230,9 @@ def play_widget(stream_url: str):
 <script>
 const b=document.getElementById('pb'), a=document.getElementById('pa'),
       s=document.getElementById('ps');
+// pe https redăm prin releu (mixed content rezolvat + contor ascultări);
+// pe http direct (acces 10.0.0.41:8501, fără releu)
+a.src = (window.parent.location.protocol === 'https:') ? "{relay}" : "{esc}";
 let tick=null, triedHttps=false;
 function fmt(t) {{ const m=Math.floor(t/60), ss=Math.floor(t%60);
   return m+":"+(ss<10?"0":"")+ss; }}
@@ -283,7 +299,11 @@ def render_my_radios_list(filter_query: str = ""):
         fix_url(r.get('streamUrl', r.get('url', ''))) for r in all_radios)
     meta = get_stations_meta(full_urls) if all_radios else {}
 
-    radios = all_radios
+    counts = get_play_counts()
+    radios = sorted(
+        all_radios,
+        key=lambda r: (-counts.get(fix_url(r.get('streamUrl', r.get('url', ''))), 0),
+                       r.get('name', '').lower()))
     if filter_query:
         q = filter_query.strip().lower()
         radios = [r for r in radios if q in r.get('name', '').lower()]
@@ -320,6 +340,9 @@ def render_my_radios_list(filter_query: str = ""):
                 q_color, q_label = quality_badge(codec, br)
                 info_bits = [f"**{codec}** @ {br or '?'} kbps",
                              f":{q_color}[{q_label}]"]
+                plays = counts.get(stream_url, 0)
+                if plays:
+                    info_bits.append(f"🎧 {plays}")
                 if m.get("votes") is not None:
                     info_bits.append(f"⭐ {m['votes']}")
                 if hp:
