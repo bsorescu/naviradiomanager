@@ -199,14 +199,29 @@ def fmt_listen_time(secs: int) -> str:
     return f"{secs // 3600}h{(secs % 3600) // 60:02d}m"
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def get_relay_stations():
+    """Maparea slug→URL original de la releu (stațiile rescrise citibil)."""
+    try:
+        r = requests.get("http://radio-relay:8502/relay/stations", timeout=4)
+        return r.json()
+    except Exception:
+        return {}
+
+
 def unwrap_relay(url: str) -> str:
-    """Stațiile rescrise spre releu au streamUrl = .../relay?u=<original>.
-    Pentru probe de calitate, chei de contor și redare directă (pagina pe
-    http) folosim ORIGINALUL dinăuntru."""
+    """Stațiile rescrise au streamUrl = .../relay/<slug> (sau forma veche
+    ?u=<original>). Pentru probe, chei de contor și redare directă folosim
+    ORIGINALUL."""
     if "/relay?u=" in url:
         inner = parse_qs(urlparse(url).query).get("u", [""])[0]
         if inner:
             return inner
+    if "/relay/" in url:
+        slug = url.rsplit("/relay/", 1)[-1]
+        original = get_relay_stations().get(slug)
+        if original:
+            return original
     return url
 
 
