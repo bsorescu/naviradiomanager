@@ -1,5 +1,6 @@
 ####
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 import hashlib
 import os
@@ -225,7 +226,7 @@ def render_my_radios_list(filter_query: str = ""):
         is_playing = st.session_state.playing_id == rid
 
         with st.container(border=True):
-            row = st.columns([1, 7, 1, 1, 1], vertical_alignment="center")
+            row = st.columns([1, 8, 1], vertical_alignment="center")
             with row[0]:
                 if icona:
                     st.image(icona, width=40)
@@ -242,55 +243,30 @@ def render_my_radios_list(filter_query: str = ""):
                 if hp:
                     info_bits.append(
                         f"🔗 [{'Sito' if LANG_CODE == 'IT' else 'Site'}]({hp})")
-                st.markdown(f"**{radio.get('name', 'Unknown')}**  \n" +
-                            " · ".join(info_bits))
+                st.markdown(f"**{radio.get('name', 'Unknown')}**")
+                info_cols = st.columns([6, 1], vertical_alignment="center")
+                with info_cols[0]:
+                    st.markdown(" · ".join(info_bits))
+                with info_cols[1]:
+                    # „More…" — link, nu buton (type=tertiary, Streamlit ≥1.41)
+                    if st.button("More…" if LANG_CODE != "IT" else "Altro…",
+                                 key=f"more_{rid}", type="tertiary"):
+                        select_radio_for_details(radio)
+                        st.rerun()
             with row[2]:
                 if st.button("⏹" if is_playing else "▶️", key=f"play_{rid}",
                              help="Stop" if is_playing else "Play",
                              use_container_width=True):
                     st.session_state.playing_id = None if is_playing else rid
                     st.rerun()
-            with row[3]:
-                if st.button("🔍", key=f"det_{rid}",
-                             help="Dettagli" if LANG_CODE == "IT" else "Details",
-                             use_container_width=True):
-                    select_radio_for_details(radio)
-                    st.rerun()
-            with row[4]:
-                if st.button("🗑", key=f"delx_{rid}",
-                             help="Elimina" if LANG_CODE == "IT" else "Delete",
-                             use_container_width=True):
-                    st.session_state[f"confirm_del_{rid}"] = True
-                    st.rerun()
-
-            if st.session_state.get(f"confirm_del_{rid}"):
-                st.warning("⚠️ " + (f"Elimini «{radio.get('name')}»?" if LANG_CODE == "IT"
-                                    else f"Delete “{radio.get('name')}”?"))
-                ccols = st.columns(2)
-                with ccols[0]:
-                    if st.button("✅ " + ("Conferma" if LANG_CODE == "IT" else "Confirm"),
-                                 key=f"delok_{rid}", use_container_width=True, type="primary"):
-                        res = delete_radio(rid)
-                        st.session_state[f"confirm_del_{rid}"] = False
-                        if res.get('subsonic-response', {}).get('status') == 'ok':
-                            if st.session_state.playing_id == rid:
-                                st.session_state.playing_id = None
-                            st.cache_data.clear()
-                            st.session_state.my_radios = get_all_my_radios_with_details()
-                            st.toast("🗑️ " + ("Eliminata" if LANG_CODE == "IT" else "Deleted"))
-                        else:
-                            err = res.get('subsonic-response', {}).get('error', {}).get(
-                                'message', 'Errore sconosciuto' if LANG_CODE == 'IT' else 'Unknown error')
-                            st.error(f"❌ {err}")
-                        st.rerun()
-                with ccols[1]:
-                    if st.button("❌ " + ("Annulla" if LANG_CODE == "IT" else "Cancel"),
-                                 key=f"delno_{rid}", use_container_width=True):
-                        st.session_state[f"confirm_del_{rid}"] = False
-                        st.rerun()
 
             if is_playing:
                 st.audio(stream_url, format="audio/mp3", autoplay=True)
+                components.html("""<script>
+setTimeout(function(){
+  var a = window.parent.document.querySelectorAll('audio');
+  if (a.length) { a[a.length-1].play().catch(function(){}); }
+}, 400);</script>""", height=0)
 
 
 def sync_to_sel():
@@ -563,6 +539,9 @@ def select_radio_for_details(radio):
     st.session_state.selected_radio = radio
     st.session_state.edit_mode = False
     st.session_state.editing_radio = None
+    # fix 2026-08-18: lista e acum pe pagina principală (view_mode=search) —
+    # fără comutarea explicită, detaliul nu se randa niciodată de acolo
+    st.session_state.view_mode = "manage"
 
 def back_to_radio_list():
     """Torna alla lista delle radio"""

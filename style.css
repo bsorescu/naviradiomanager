@@ -436,14 +436,12 @@ div[data-baseweb="base-input"] > input {
    ========================================================== */
 
 /* Butoane-icon (play/details) de dimensiunea siglei, in randul ei */
-[class*="st-key-play_"] button,
-[class*="st-key-det_"] button,
-[class*="st-key-delx_"] button {
+[class*="st-key-play_"] button {
   padding: 0.25rem 0 !important;
   min-height: 44px !important;
   width: 44px !important;
-  margin-left: auto !important;   /* lipite de marginea dreapta a coloanei */
-  font-size: 1.05rem !important;
+  margin-left: auto !important;   /* lipit de marginea dreapta a coloanei */
+  font-size: 1.35rem !important;
   line-height: 1 !important;
 }
 
@@ -467,24 +465,17 @@ div[data-baseweb="base-input"] > input {
   }
 }
 
-/* Iteratia 4 (2026-08-18): hover clar pe butoanele-icon play/details */
-[class*="st-key-play_"] button,
-[class*="st-key-det_"] button,
-[class*="st-key-delx_"] button {
-  border: 2px solid rgba(255, 255, 255, 0.25) !important;
+/* Iteratia 5 (2026-08-18): play FARA chenar — doar simbolul; hover viu */
+[class*="st-key-play_"] button {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
   transition: all 0.15s ease !important;
 }
-[class*="st-key-play_"] button:hover,
-[class*="st-key-det_"] button:hover {
-  background-color: #cc0000 !important;
-  border-color: #ff4b1f !important;
-  transform: scale(1.1);
-  box-shadow: 0 2px 10px rgba(204, 0, 0, 0.45) !important;
-}
-[class*="st-key-det_"] button:hover {
-  background-color: #008c45 !important;
-  border-color: #00b85c !important;
-  box-shadow: 0 2px 10px rgba(0, 140, 69, 0.45) !important;
+[class*="st-key-play_"] button:hover {
+  transform: scale(1.25);
+  filter: drop-shadow(0 0 6px rgba(255, 75, 31, 0.8));
+  background: transparent !important;
 }
 
 /* Filtrul local: distinct de un input obisnuit, cu aer de bara de filtru */
@@ -497,10 +488,27 @@ div[data-baseweb="base-input"] > input {
   border-color: #cd212a !important;
 }
 
-/* Delete: hover rosu inchis, distinct de play */
-[class*="st-key-delx_"] button:hover {
+/* „More…" — arata ca un link, langa restul infoului */
+[class*="st-key-more_"] button {
+  color: #4da3ff !important;
+  padding: 0 !important;
+  min-height: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  font-size: 0.9rem !important;
+}
+[class*="st-key-more_"] button:hover {
+  text-decoration: underline !important;
+  color: #7fbfff !important;
+}
+
+/* Delete pe pagina de detalii: clar rosu, actiune distructiva */
+[class*="st-key-del_btn_"] button {
   background-color: #7a0000 !important;
-  border-color: #cc0000 !important;
-  transform: scale(1.1);
-  box-shadow: 0 2px 10px rgba(122, 0, 0, 0.5) !important;
+  border: 2px solid #cc0000 !important;
+  color: #ffffff !important;
+}
+[class*="st-key-del_btn_"] button:hover {
+  background-color: #cc0000 !important;
+  box-shadow: 0 2px 10px rgba(204, 0, 0, 0.5) !important;
 }
