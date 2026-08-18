@@ -9,8 +9,10 @@ from urllib.parse import unquote
 st.set_page_config(
     page_title="NaviRadioManager",
     page_icon="📻",
-    layout="wide", 
-    initial_sidebar_state="auto" 
+    layout="wide",
+    # Redesign 2026-08-18: no sidebar — all controls live in the main area
+    # (mobile-first). The sidebar is also hidden via CSS as a belt-and-braces.
+    initial_sidebar_state="collapsed"
 )
 
 def local_css(file_name):
@@ -415,57 +417,24 @@ def rerun():
 
 st.markdown("<style>[data-testid='stVerticalBlock'] > div {transition: none !important; opacity: 1 !important;}</style>", unsafe_allow_html=True)
 
-st.title(T["title"])
-
+# ============================================================
+# REDESIGN 2026-08-18 (bsorescu): header + control bar în main —
+# fără sidebar; logică identică (aceleași chei de sesiune/callbacks)
+# ============================================================
 lista_ufficiale = [""] + get_all_countries()
 
-with st.sidebar:
-
-    st.header(T["search_header"])
-    st.divider()   
-    # Bottone per gestione radio
-    manage_label = T.get("btn_manage_radios", "📻 Navidrome Radio" if LANG_CODE == "IT" else "📻 Navidrome Radios")
-    if st.button(manage_label, use_container_width=True, type="secondary"):
-        st.cache_data.clear()
-        st.session_state.my_radios = get_all_my_radios_with_details()
-        switch_to_manage_mode()
-        st.rerun()
-    
-    st.divider()
-    
-    # Sezione ricerca originale (visibile solo in modalità ricerca)
+header_cols = st.columns([3, 1], vertical_alignment="center")
+with header_cols[0]:
+    st.title(T["title"])
+with header_cols[1]:
     if st.session_state.view_mode == "search":
-        modi = ["Nome", "Nazione"] if LANG_CODE == "IT" else ["Name", "Country"]
-        mode = st.selectbox(T["mode"], modi)
-        st.text_input(
-            T["name_label"], 
-            key="search_name", 
-            on_change=trigger_search,
-            placeholder="Write and wait..."
-        )
-        if mode in ["Nazione", "Country"]:
-            st.write("---")
-            st.selectbox(
-                T["country_sel"], 
-                options=lista_ufficiale, 
-                key="search_country_sel", 
-                on_change=trigger_search
-            )
-            st.text_input(
-                T["country_text"], 
-                key="search_country_text", 
-                placeholder="es: America, Italy...", 
-                on_change=trigger_search
-            )
-        st.button(T["btn_search"], on_click=trigger_search, use_container_width=True, type="primary")
-        
-        if st.session_state.get('stage') == 1:
-            st.button(T["btn_home"], on_click=reset_home, use_container_width=True)
-    
-    # Sidebar in modalità gestione
+        manage_label = T.get("btn_manage_radios", "📻 Navidrome Radio" if LANG_CODE == "IT" else "📻 Navidrome Radios")
+        if st.button(manage_label, use_container_width=True, type="secondary"):
+            st.cache_data.clear()
+            st.session_state.my_radios = get_all_my_radios_with_details()
+            switch_to_manage_mode()
+            st.rerun()
     else:
-        #st.subheader("📻 " + (T.get("my_radios_title", "Le mie Radio") if LANG_CODE == "IT" else "My Radios"))
-        
         back_label = "🔙 " + (T.get("back_to_search", "Torna alla Ricerca") if LANG_CODE == "IT" else "Back to Search")
         if st.button(back_label, use_container_width=True):
             st.session_state.view_mode = "search"
@@ -474,14 +443,51 @@ with st.sidebar:
             st.cache_data.clear()
             st.session_state.my_radios = get_all_my_radios_with_details()
             st.rerun()
+
+if st.session_state.view_mode == "search":
+    # Bara de control: [mod | nume | caută] pe un rând; rândul de țară
+    # dedesubt când e cazul. Pe mobil rândurile se stivuiesc (CSS).
+    with st.container(border=True):
+        modi = ["Nome", "Nazione"] if LANG_CODE == "IT" else ["Name", "Country"]
+        bar_cols = st.columns([1, 2, 1], vertical_alignment="bottom")
+        with bar_cols[0]:
+            mode = st.selectbox(T["mode"], modi)
+        with bar_cols[1]:
+            st.text_input(
+                T["name_label"],
+                key="search_name",
+                on_change=trigger_search,
+                placeholder="Write and wait..."
+            )
+        with bar_cols[2]:
+            st.button(T["btn_search"], on_click=trigger_search, use_container_width=True, type="primary")
+        if mode in ["Nazione", "Country"]:
+            country_cols = st.columns(2, vertical_alignment="bottom")
+            with country_cols[0]:
+                st.selectbox(
+                    T["country_sel"],
+                    options=lista_ufficiale,
+                    key="search_country_sel",
+                    on_change=trigger_search
+                )
+            with country_cols[1]:
+                st.text_input(
+                    T["country_text"],
+                    key="search_country_text",
+                    placeholder="es: America, Italy...",
+                    on_change=trigger_search
+                )
         
-        st.divider()
-        
-        if st.session_state.selected_radio:
-            back_list_label = "📋 " + (T.get("back_to_list", "Torna alla Lista") if LANG_CODE == "IT" else "Back to List")
-            if st.button(back_list_label, use_container_width=True, type="secondary"):
-                back_to_radio_list()
-                st.rerun()
+        if st.session_state.get('stage') == 1:
+            st.button(T["btn_home"], on_click=reset_home, use_container_width=True)
+
+# Manage mode: contextual back-to-list button (back-to-search lives in header)
+else:
+    if st.session_state.selected_radio:
+        back_list_label = "📋 " + (T.get("back_to_list", "Torna alla Lista") if LANG_CODE == "IT" else "Back to List")
+        if st.button(back_list_label, use_container_width=True, type="secondary"):
+            back_to_radio_list()
+            st.rerun()
 
 main_area = st.empty()
 

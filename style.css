@@ -367,3 +367,64 @@ div.stButton>button {
   min-height: 52px !important;
   max-height: 52px !important;
 }
+/* ==========================================================
+   REDESIGN 2026-08-18 (bsorescu): fara sidebar + mobile-first
+   ========================================================== */
+
+/* 1. Sidebar-ul dispare complet — controalele traiesc in main */
+[data-testid="stSidebar"],
+[data-testid="stSidebarCollapsedControl"] {
+  display: none !important;
+}
+
+/* 2. Latime de citit pe desktop, aer sus */
+.block-container {
+  max-width: 1100px !important;
+  padding-top: 1.2rem !important;
+}
+
+/* 3. Cursor corect: pointer pe select-uri si butoane, nu I-beam de text */
+div[data-baseweb="select"],
+div[data-baseweb="select"] *,
+.stButton button {
+  cursor: pointer !important;
+}
+
+/* 4. Text vizibil cand tastezi in select-uri (filtrarea asincrona):
+      inputul intern baseweb mostenea textColor deschis pe fundal deschis */
+div[data-baseweb="select"] > div {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  color: #1a1a1a !important;
+}
+div[data-baseweb="select"] input {
+  color: #1a1a1a !important;
+  caret-color: #cc0000 !important;
+  cursor: text !important; /* in interiorul campului chiar tastezi */
+}
+
+/* 5. Inputuri text: contrast + caret (generalizarea patch-ului anterior) */
+input, textarea {
+  caret-color: #cc0000 !important;
+}
+div[data-baseweb="base-input"] > input {
+  color: #1a1a1a !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 6. Mobil: sub 640px coloanele se stivuiesc, tinte de atins mai mari */
+@media (max-width: 640px) {
+  [data-testid="stHorizontalBlock"] {
+    flex-direction: column !important;
+    gap: 0.4rem !important;
+  }
+  [data-testid="stHorizontalBlock"] > div {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+  .block-container {
+    padding-left: 0.8rem !important;
+    padding-right: 0.8rem !important;
+  }
+  h1 { font-size: 1.5rem !important; }
+  .stButton button { min-height: 44px !important; }
+}
