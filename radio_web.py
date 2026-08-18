@@ -188,12 +188,23 @@ def quality_badge(codec, bitrate):
     return "orange", "Low Quality"
 
 
-def render_my_radios_list():
+def render_my_radios_list(filter_query: str = ""):
     """Lista de stații — randată pe pagina PRINCIPALĂ (stage 0) și în modul
     de gestiune (aceeași sursă, zero duplicare). Card: [siglă | nume+info |
     ▶️ | 🔍] — butoanele au dimensiunea siglei, aliniate dreapta; playerul
     apare inline sub rând."""
-    radios = st.session_state.my_radios
+    all_radios = st.session_state.my_radios
+    # Probele de stream se fac pe lista COMPLETĂ — cheia de cache rămâne
+    # stabilă indiferent de filtrul tastat (altfel fiecare literă ar
+    # redeclanșa sondarea tuturor stațiilor).
+    full_urls = tuple(
+        fix_url(r.get('streamUrl', r.get('url', ''))) for r in all_radios)
+    meta = get_stations_meta(full_urls) if all_radios else {}
+
+    radios = all_radios
+    if filter_query:
+        q = filter_query.strip().lower()
+        radios = [r for r in radios if q in r.get('name', '').lower()]
     if not radios:
         st.warning(T.get("no_radios_found", "Nessuna radio trovata in Navidrome" if LANG_CODE == "IT"
                          else "No radios found in Navidrome"))
@@ -201,7 +212,6 @@ def render_my_radios_list():
 
     stream_urls = tuple(
         fix_url(r.get('streamUrl', r.get('url', ''))) for r in radios)
-    meta = get_stations_meta(stream_urls)
 
     if 'playing_id' not in st.session_state:
         st.session_state.playing_id = None
@@ -272,6 +282,8 @@ if 'search_country' not in st.session_state:
     st.session_state.search_country = ""
 if 'view_mode' not in st.session_state:
     st.session_state.view_mode = "search"
+if 'add_mode' not in st.session_state:
+    st.session_state.add_mode = False
 if 'my_radios' not in st.session_state:
     st.session_state.my_radios = []
 if 'selected_radio' not in st.session_state:
@@ -493,6 +505,7 @@ def trigger_search():
     )
 
 def reset_home():
+    st.session_state.add_mode = False
     st.session_state.stage = 0
     st.session_state.results = []
     st.session_state.offset = 0
@@ -551,12 +564,18 @@ with header_cols[0]:
     st.title(T["title"])
 with header_cols[1]:
     if st.session_state.view_mode == "search":
-        manage_label = T.get("btn_manage_radios", "📻 Navidrome Radio" if LANG_CODE == "IT" else "📻 Navidrome Radios")
-        if st.button(manage_label, use_container_width=True, type="secondary"):
-            st.cache_data.clear()
-            st.session_state.my_radios = get_all_my_radios_with_details()
-            switch_to_manage_mode()
-            st.rerun()
+        if not st.session_state.add_mode:
+            add_lbl = "➕ " + ("Aggiungi radio" if LANG_CODE == "IT" else "Add new radios")
+            if st.button(add_lbl, use_container_width=True, type="primary"):
+                st.session_state.add_mode = True
+                st.session_state.stage = 0
+                st.session_state.results = []
+                st.rerun()
+        else:
+            back_lbl = "📻 " + ("Le mie radio" if LANG_CODE == "IT" else "My Radios")
+            if st.button(back_lbl, use_container_width=True, type="secondary"):
+                reset_home()
+                st.rerun()
     else:
         back_label = "🔙 " + (T.get("back_to_search", "Torna alla Ricerca") if LANG_CODE == "IT" else "Back to Search")
         if st.button(back_label, use_container_width=True):
@@ -567,9 +586,9 @@ with header_cols[1]:
             st.session_state.my_radios = get_all_my_radios_with_details()
             st.rerun()
 
-if st.session_state.view_mode == "search":
-    # Bara de control: [mod | nume | caută] pe un rând; rândul de țară
-    # dedesubt când e cazul. Pe mobil rândurile se stivuiesc (CSS).
+if st.session_state.view_mode == "search" and st.session_state.add_mode:
+    # Bara de control (DOAR în modul de adăugare): [mod | nume | caută];
+    # rândul de țară dedesubt când e cazul. Pe mobil se stivuiesc (CSS).
     with st.container(border=True):
         modi = ["Nome", "Nazione"] if LANG_CODE == "IT" else ["Name", "Country"]
         bar_cols = st.columns([1, 2, 1], vertical_alignment="bottom")
@@ -864,10 +883,19 @@ with main_area.container():
     # ============================================
     else:
         if st.session_state.stage == 0:
-            # Redesign 2026-08-18: lista My Radios ESTE pagina principală
-            if not st.session_state.my_radios:
-                st.session_state.my_radios = get_all_my_radios_with_details()
-            render_my_radios_list()
+            if st.session_state.add_mode:
+                st.info("🔎 " + ("Cerca nuove stazioni qui sopra." if LANG_CODE == "IT"
+                                 else "Search for new stations above — results will appear here."))
+            else:
+                # Acasă: filtru live peste stațiile locale + lista
+                if not st.session_state.my_radios:
+                    st.session_state.my_radios = get_all_my_radios_with_details()
+                st.text_input(
+                    "🔎 " + ("Filtra le mie radio" if LANG_CODE == "IT" else "Filter my radios"),
+                    key="filter_local",
+                    placeholder="Type to filter…",
+                    label_visibility="collapsed")
+                render_my_radios_list(st.session_state.get("filter_local", ""))
             
         elif st.session_state.stage == 1:
             existing_urls = get_existing_radios()  
