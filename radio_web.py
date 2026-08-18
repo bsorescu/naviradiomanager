@@ -179,14 +179,24 @@ def get_stations_meta(urls: tuple):
 
 @st.cache_data(ttl=30, show_spinner=False)
 def get_play_counts():
-    """Contoarele de ascultări de la radio-relay (persistente pe disc).
-    Cheia = streamUrl-ul exact; lipsa releului = dict gol, lista rămâne
-    ordonată alfabetic — degradare, nu eroare."""
+    """Contoarele de la radio-relay: {url: {plays, seconds}} (persistente).
+    Lipsa releului = dict gol, lista rămâne alfabetică — degradare, nu
+    eroare. Schema veche (int) e normalizată defensiv."""
     try:
         r = requests.get("http://radio-relay:8502/relay/counts", timeout=4)
-        return r.json()
+        raw = r.json()
+        return {k: (v if isinstance(v, dict) else {"plays": v, "seconds": 0})
+                for k, v in raw.items()}
     except Exception:
         return {}
+
+
+def fmt_listen_time(secs: int) -> str:
+    if secs < 60:
+        return f"{secs}s"
+    if secs < 3600:
+        return f"{secs // 60}m"
+    return f"{secs // 3600}h{(secs % 3600) // 60:02d}m"
 
 
 def quality_badge(codec, bitrate):
@@ -300,10 +310,14 @@ def render_my_radios_list(filter_query: str = ""):
     meta = get_stations_meta(full_urls) if all_radios else {}
 
     counts = get_play_counts()
-    radios = sorted(
-        all_radios,
-        key=lambda r: (-counts.get(fix_url(r.get('streamUrl', r.get('url', ''))), 0),
-                       r.get('name', '').lower()))
+
+    def _rank(r):
+        c = counts.get(fix_url(r.get('streamUrl', r.get('url', ''))),
+                       {"plays": 0, "seconds": 0})
+        # ponderarea principală = TIMPUL ascultat; pornirile departajează
+        return (-c["seconds"], -c["plays"], r.get('name', '').lower())
+
+    radios = sorted(all_radios, key=_rank)
     if filter_query:
         q = filter_query.strip().lower()
         radios = [r for r in radios if q in r.get('name', '').lower()]
@@ -340,9 +354,10 @@ def render_my_radios_list(filter_query: str = ""):
                 q_color, q_label = quality_badge(codec, br)
                 info_bits = [f"**{codec}** @ {br or '?'} kbps",
                              f":{q_color}[{q_label}]"]
-                plays = counts.get(stream_url, 0)
-                if plays:
-                    info_bits.append(f"🎧 {plays}")
+                c = counts.get(stream_url, {"plays": 0, "seconds": 0})
+                if c["plays"]:
+                    info_bits.append(
+                        f"🎧 {c['plays']}× · {fmt_listen_time(c['seconds'])}")
                 if m.get("votes") is not None:
                     info_bits.append(f"⭐ {m['votes']}")
                 if hp:
