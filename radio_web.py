@@ -191,54 +191,84 @@ def quality_badge(codec, bitrate):
 
 
 def play_widget(stream_url: str):
-    """Player per card: butonul și <audio> stau în ACELAȘI document
-    (iframe-ul componentei), deci click-ul e gest valid pentru autoplay —
-    pornește instant, inclusiv în incognito. La pornire, oprește orice alt
-    player din pagină (un singur stream activ)."""
+    """Player per card: butonul și <audio> în ACELAȘI document — click-ul
+    e gest valid pentru autoplay (merge și în incognito). Sub buton: status
+    live (buffering / LIVE cu cronometru / eroare). Stream http pe pagină
+    https = mixed content blocat de Chrome — încercăm automat varianta
+    https a stream-ului; dacă nici ea nu există, statusul spune ⚠️."""
     esc = stream_url.replace('"', "%22")
     components.html(f"""
-<div style="display:flex;justify-content:flex-end;align-items:center;height:64px;padding-right:6px">
+<div style="display:flex;flex-direction:column;align-items:flex-end;
+            justify-content:center;height:84px;padding-right:6px;gap:4px">
   <button id="pb" onclick="tgl()" title="Play/Pause" style="
       width:44px;height:44px;border-radius:50%;border:none;cursor:pointer;
       background:linear-gradient(145deg,#ff4b1f,#cc0000);color:#fff;
       font-size:17px;line-height:1;display:flex;align-items:center;
       justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);
-      transition:all .15s ease">▶</button>
+      transition:all .15s ease;flex:0 0 auto">▶</button>
+  <span id="ps" style="font:10px sans-serif;color:#9fb9c4;white-space:nowrap;
+      min-height:12px;text-align:right"></span>
   <audio id="pa" src="{esc}" preload="none"></audio>
 </div>
 <style>
-  #pb:hover {{ transform:scale(1.12); box-shadow:0 3px 14px rgba(255,75,31,.7); }}
+  #pb:hover {{ transform:scale(1.1); box-shadow:0 3px 14px rgba(255,75,31,.7); }}
   #pb.on {{ background:linear-gradient(145deg,#00b85c,#008c45); }}
 </style>
 <script>
-const b=document.getElementById('pb'), a=document.getElementById('pa');
+const b=document.getElementById('pb'), a=document.getElementById('pa'),
+      s=document.getElementById('ps');
+let tick=null, triedHttps=false;
+function fmt(t) {{ const m=Math.floor(t/60), ss=Math.floor(t%60);
+  return m+":"+(ss<10?"0":"")+ss; }}
+function startTick() {{ stopTick();
+  tick=setInterval(function() {{
+    if (!a.paused && a.currentTime>0) s.textContent="🔴 LIVE "+fmt(a.currentTime);
+  }}, 1000); }}
+function stopTick() {{ if (tick) {{ clearInterval(tick); tick=null; }} }}
+function offUi() {{ b.textContent='▶'; b.classList.remove('on'); stopTick(); }}
 function stopOthers() {{
   try {{
     window.parent.document.querySelectorAll('iframe').forEach(function(f) {{
       try {{
         if (f.contentWindow === window) return;
-        const d = f.contentDocument; if (!d) return;
+        const d=f.contentDocument; if (!d) return;
         d.querySelectorAll('audio').forEach(function(x) {{ if (!x.paused) x.pause(); }});
-        const ob = d.getElementById('pb');
-        if (ob) {{ ob.textContent = '▶'; ob.classList.remove('on'); }}
-      }} catch (e) {{}}
+        const ob=d.getElementById('pb');
+        if (ob) {{ ob.textContent='▶'; ob.classList.remove('on'); }}
+        const os=d.getElementById('ps'); if (os) os.textContent='';
+      }} catch(e) {{}}
     }});
-  }} catch (e) {{}}
+  }} catch(e) {{}}
 }}
 function tgl() {{
   if (a.paused) {{
     stopOthers();
+    s.textContent="⏳ …";
     a.play().catch(function() {{}});
-    b.textContent = '⏸'; b.classList.add('on');
+    b.textContent='⏸'; b.classList.add('on');
   }} else {{
-    a.pause();
-    b.textContent = '▶'; b.classList.remove('on');
+    a.pause(); offUi(); s.textContent='';
   }}
 }}
-a.addEventListener('ended', function() {{ b.textContent='▶'; b.classList.remove('on'); }});
+a.addEventListener('playing', startTick);
+a.addEventListener('waiting', function() {{ s.textContent="⏳ buffering…"; }});
+a.addEventListener('ended', function() {{ offUi(); s.textContent=''; }});
+a.addEventListener('error', function() {{
+  // http pe pagina https = blocat; incearca varianta https a stream-ului
+  if (!triedHttps && a.src.indexOf('http://')===0
+      && window.location.protocol==='https:') {{
+    triedHttps=true;
+    s.textContent="⏳ reîncerc https…";
+    a.src = a.src.replace('http://','https://');
+    a.play().catch(function() {{}});
+    return;
+  }}
+  offUi();
+  s.textContent="⚠️ indisponibil";
+  s.title="Stream http blocat pe pagină https (mixed content) sau server căzut";
+}});
 </script>
-""", height=68)
-
+""", height=88)
 
 def render_my_radios_list(filter_query: str = ""):
     """Lista de stații — randată pe pagina PRINCIPALĂ (stage 0) și în modul
