@@ -511,3 +511,10 @@ a.radio-link { cursor: pointer !important; }
     flex: 0 0 72px !important;
   }
 }
+
+/* Info-ul cardului: pe desktop un rand; pe mobil, rand nou dupa calitate */
+.m-br { display: none; }
+@media (max-width: 640px) {
+  .m-br { display: block; }
+  .m-dot { display: none; }
+}

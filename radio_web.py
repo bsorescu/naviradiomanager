@@ -374,7 +374,16 @@ def render_my_radios_list(filter_query: str = ""):
                 if hp:
                     info_bits.append(
                         f"🔗 [{'Sito' if LANG_CODE == 'IT' else 'Site'}]({hp})")
-                st.markdown(" · ".join(info_bits))
+                # pe mobil: rând nou după calitate (altfel linia se frânge urât)
+                line1 = " · ".join(info_bits[:2])
+                line2 = " · ".join(info_bits[2:])
+                if line2:
+                    st.markdown(
+                        f'{line1}<span class="m-dot"> · </span>'
+                        f'<br class="m-br">{line2}',
+                        unsafe_allow_html=True)
+                else:
+                    st.markdown(line1)
             with row[1]:
                 play_widget(stream_url)
 
