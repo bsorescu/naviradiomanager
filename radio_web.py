@@ -2,6 +2,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import hashlib
 import os
 import time
@@ -144,7 +146,9 @@ def get_stations_meta(urls: tuple):
     def probe(u):
         meta = {"codec": "N/D", "bitrate": 0, "votes": None}
         try:
-            r = requests.get(u, timeout=4, stream=True,
+            # verify=False: multe stații au lanțuri TLS incomplete (Smart
+            # Radio) — browserul le completează prin AIA, requests nu
+            r = requests.get(u, timeout=4, stream=True, verify=False,
                              headers={"Icy-MetaData": "1"})
             ct = r.headers.get("Content-Type", "").lower()
             try:
