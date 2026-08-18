@@ -430,3 +430,32 @@ div[data-baseweb="base-input"] > input {
   h1 { font-size: 1.5rem !important; }
   .stButton button { min-height: 44px !important; }
 }
+
+/* ==========================================================
+   Iteratia 2 (2026-08-18): lista pe pagina principala
+   ========================================================== */
+
+/* Butoane-icon (play/details) de dimensiunea siglei, in randul ei */
+[class*="st-key-play_"] button,
+[class*="st-key-det_"] button {
+  padding: 0.25rem 0 !important;
+  min-height: 40px !important;
+  font-size: 1.05rem !important;
+  line-height: 1 !important;
+}
+
+/* Pe mobil, randurile cu imagine (headerul cardului) raman ORIZONTALE —
+   doar randurile de formular se stivuiesc. Numele ia spatiul ramas. */
+@media (max-width: 640px) {
+  [data-testid="stHorizontalBlock"]:has(img) {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+  }
+  [data-testid="stHorizontalBlock"]:has(img) > div {
+    width: auto !important;
+    min-width: 0 !important;
+  }
+  [data-testid="stHorizontalBlock"]:has(img) > div:nth-child(2) {
+    flex: 1 1 0 !important;
+  }
+}

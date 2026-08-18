@@ -188,6 +188,69 @@ def quality_badge(codec, bitrate):
     return "orange", "Low Quality"
 
 
+def render_my_radios_list():
+    """Lista de stații — randată pe pagina PRINCIPALĂ (stage 0) și în modul
+    de gestiune (aceeași sursă, zero duplicare). Card: [siglă | nume+info |
+    ▶️ | 🔍] — butoanele au dimensiunea siglei, aliniate dreapta; playerul
+    apare inline sub rând."""
+    radios = st.session_state.my_radios
+    if not radios:
+        st.warning(T.get("no_radios_found", "Nessuna radio trovata in Navidrome" if LANG_CODE == "IT"
+                         else "No radios found in Navidrome"))
+        return
+
+    stream_urls = tuple(
+        fix_url(r.get('streamUrl', r.get('url', ''))) for r in radios)
+    meta = get_stations_meta(stream_urls)
+
+    if 'playing_id' not in st.session_state:
+        st.session_state.playing_id = None
+
+    for idx, radio in enumerate(radios):
+        rid = radio.get('id')
+        stream_url = stream_urls[idx]
+        m = meta.get(stream_url, {})
+        hp = radio.get('homePageUrl', '').strip()
+        icona = f"https://www.google.com/s2/favicons?sz=64&domain={hp}" if hp else None
+        is_playing = st.session_state.playing_id == rid
+
+        with st.container(border=True):
+            row = st.columns([1, 7, 1, 1], vertical_alignment="center")
+            with row[0]:
+                if icona:
+                    st.image(icona, width=40)
+                else:
+                    st.markdown("### 📻")
+            with row[1]:
+                codec = m.get("codec", "N/D")
+                br = m.get("bitrate", 0)
+                q_color, q_label = quality_badge(codec, br)
+                info_bits = [f"**{codec}** @ {br or '?'} kbps",
+                             f":{q_color}[{q_label}]"]
+                if m.get("votes") is not None:
+                    info_bits.append(f"⭐ {m['votes']}")
+                if hp:
+                    info_bits.append(
+                        f"🔗 [{'Sito' if LANG_CODE == 'IT' else 'Site'}]({hp})")
+                st.markdown(f"**{radio.get('name', 'Unknown')}**  \n" +
+                            " · ".join(info_bits))
+            with row[2]:
+                if st.button("⏹" if is_playing else "▶️", key=f"play_{rid}",
+                             help="Stop" if is_playing else "Play",
+                             use_container_width=True):
+                    st.session_state.playing_id = None if is_playing else rid
+                    st.rerun()
+            with row[3]:
+                if st.button("🔍", key=f"det_{rid}",
+                             help="Dettagli" if LANG_CODE == "IT" else "Details",
+                             use_container_width=True):
+                    select_radio_for_details(radio)
+                    st.rerun()
+
+            if is_playing:
+                st.audio(stream_url, format="audio/mp3", autoplay=True)
+
+
 def sync_to_sel():
     st.session_state.search_country_text = ""
 
@@ -792,80 +855,19 @@ with main_area.container():
                 st.warning(T.get("no_radios_found", "Nessuna radio trovata in Navidrome" if LANG_CODE == "IT" 
                                else "No radios found in Navidrome"))
             else:
-                radios = st.session_state.my_radios
-                st.success(f"📻 {len(radios)} " +
+                st.success(f"📻 {len(st.session_state.my_radios)} " +
                           (T.get("radios_count", "radio trovate") if LANG_CODE == "IT" else "radios found"))
-
-                # Redesign 2026-08-18: carduri bogate — calitate măsurată din
-                # stream, voturi Radio-Browser (unde există), link site,
-                # play/stop inline (un singur player activ odată).
-                stream_urls = tuple(
-                    fix_url(r.get('streamUrl', r.get('url', ''))) for r in radios)
-                meta = get_stations_meta(stream_urls)
-
-                if 'playing_id' not in st.session_state:
-                    st.session_state.playing_id = None
-
-                cols_per_row = 2
-                for i in range(0, len(radios), cols_per_row):
-                    cols = st.columns(cols_per_row)
-                    for j in range(cols_per_row):
-                        idx = i + j
-                        if idx >= len(radios):
-                            continue
-                        radio = radios[idx]
-                        rid = radio.get('id')
-                        stream_url = stream_urls[idx]
-                        m = meta.get(stream_url, {})
-                        hp = radio.get('homePageUrl', '').strip()
-                        icona = f"https://www.google.com/s2/favicons?sz=64&domain={hp}" if hp else None
-                        with cols[j]:
-                            with st.container(border=True):
-                                head = st.columns([1, 6], vertical_alignment="center")
-                                with head[0]:
-                                    if icona:
-                                        st.image(icona, width=40)
-                                    else:
-                                        st.markdown("### 📻")
-                                with head[1]:
-                                    st.markdown(f"**{radio.get('name', 'Unknown')}**")
-
-                                codec = m.get("codec", "N/D")
-                                br = m.get("bitrate", 0)
-                                q_color, q_label = quality_badge(codec, br)
-                                info_bits = [f"**{codec}** @ {br or '?'} kbps",
-                                             f":{q_color}[{q_label}]"]
-                                if m.get("votes") is not None:
-                                    info_bits.append(f"⭐ {m['votes']}")
-                                if hp:
-                                    info_bits.append(
-                                        f"🔗 [{'Sito' if LANG_CODE == 'IT' else 'Site'}]({hp})")
-                                st.markdown(" · ".join(info_bits))
-
-                                is_playing = st.session_state.playing_id == rid
-                                bcols = st.columns(2)
-                                with bcols[0]:
-                                    play_label = "⏹ Stop" if is_playing else "▶️ Play"
-                                    if st.button(play_label, key=f"play_{rid}",
-                                                 use_container_width=True,
-                                                 type="secondary" if is_playing else "primary"):
-                                        st.session_state.playing_id = None if is_playing else rid
-                                        st.rerun()
-                                with bcols[1]:
-                                    det_label = "🔍 " + ("Dettagli" if LANG_CODE == "IT" else "Details")
-                                    if st.button(det_label, key=f"det_{rid}", use_container_width=True):
-                                        select_radio_for_details(radio)
-                                        st.rerun()
-
-                                if is_playing:
-                                    st.audio(stream_url, format="audio/mp3", autoplay=True)
+                render_my_radios_list()
     
     # ============================================
     # MODALITÀ RICERCA (ORIGINALE - INVARIATA)
     # ============================================
     else:
         if st.session_state.stage == 0:
-            st.info(T["welcome"])
+            # Redesign 2026-08-18: lista My Radios ESTE pagina principală
+            if not st.session_state.my_radios:
+                st.session_state.my_radios = get_all_my_radios_with_details()
+            render_my_radios_list()
             
         elif st.session_state.stage == 1:
             existing_urls = get_existing_radios()  
@@ -1059,29 +1061,23 @@ with main_area.container():
                             )
                 
                 st.divider()
-                col_back, col_info, col_next = st.columns([1, 1, 1])
-
-                with col_back:
-                    if st.session_state.offset > 0:
-                        if st.button("⬅️ " + ("Indietro" if LANG_CODE=="IT" else "Back"), use_container_width=True, key="nav_back"):
-                            st.session_state.offset -= 20
-                            current_rev = st.session_state.get('search_reverse', "true")
-                            st.session_state.results = search_radio(st.session_state.search_name, st.session_state.final_country, st.session_state.offset, current_rev)
-                            st.rerun()
-
-                with col_info:
-                    pagina_attuale = (st.session_state.offset // 20) + 1
-                    st.markdown(f"<div style='text-align: center; padding-top: 10px; font-weight: bold; color: #ff4b1f;'>Pag. {pagina_attuale}</div>", unsafe_allow_html=True)
-
-                with col_next:
-                    if len(st.session_state.results) >= 20:
-                        if st.button(("Avanti" if LANG_CODE=="IT" else "Next") + " ➡️", use_container_width=True, key="nav_next"):
-                            st.session_state.offset += 20
-                            current_rev = st.session_state.get('search_reverse', "true")
-                            st.session_state.results = search_radio(st.session_state.search_name, st.session_state.final_country, st.session_state.offset, current_rev)
-                            st.rerun()
-                    else:
-                        st.button("🏁 " + ("Fine" if LANG_CODE=="IT" else "End"), disabled=True, use_container_width=True)
+                # Redesign 2026-08-18: „infinite search" — Load more ADAUGĂ
+                # pagina următoare la listă în loc să o înlocuiască. (Scroll
+                # infinit adevărat ar cere o componentă JS custom — butonul e
+                # echivalentul fără dependențe noi.)
+                loaded = len(st.session_state.results)
+                last_page_full = loaded > 0 and loaded % 20 == 0
+                if last_page_full:
+                    more_label = "⬇️ " + ("Carica altre" if LANG_CODE == "IT" else f"Load more ({loaded} loaded)")
+                    if st.button(more_label, use_container_width=True, key="nav_more", type="primary"):
+                        st.session_state.offset += 20
+                        current_rev = st.session_state.get('search_reverse', "true")
+                        next_page = search_radio(st.session_state.search_name, st.session_state.final_country, st.session_state.offset, current_rev)
+                        seen = {s.get('stationuuid') for s in st.session_state.results}
+                        st.session_state.results += [s for s in next_page if s.get('stationuuid') not in seen]
+                        st.rerun()
+                else:
+                    st.caption("🏁 " + (f"Fine — {loaded} risultati" if LANG_CODE == "IT" else f"End of results — {loaded} total"))
 
                 st.write("")
                 if st.button("🏠 " + T["btn_home"], on_click=reset_home, use_container_width=True):
