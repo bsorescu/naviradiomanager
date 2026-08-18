@@ -439,7 +439,9 @@ div[data-baseweb="base-input"] > input {
 [class*="st-key-play_"] button,
 [class*="st-key-det_"] button {
   padding: 0.25rem 0 !important;
-  min-height: 40px !important;
+  min-height: 44px !important;
+  width: 44px !important;
+  margin-left: auto !important;   /* lipite de marginea dreapta a coloanei */
   font-size: 1.05rem !important;
   line-height: 1 !important;
 }
@@ -452,10 +454,14 @@ div[data-baseweb="base-input"] > input {
     flex-wrap: nowrap !important;
   }
   [data-testid="stHorizontalBlock"]:has(img) > div {
+    flex: 0 0 auto !important;   /* siglă+butoane: cât conținutul, nu % */
     width: auto !important;
     min-width: 0 !important;
   }
   [data-testid="stHorizontalBlock"]:has(img) > div:nth-child(2) {
-    flex: 1 1 0 !important;
+    flex: 1 1 0 !important;      /* numele ia tot restul */
+  }
+  [data-testid="stHorizontalBlock"]:has(img) {
+    gap: 0.5rem !important;
   }
 }
