@@ -711,7 +711,7 @@ if st.session_state.view_mode == "search" and st.session_state.add_mode:
 else:
     if st.session_state.selected_radio:
         back_list_label = "📋 " + (T.get("back_to_list", "Torna alla Lista") if LANG_CODE == "IT" else "Back to List")
-        if st.button(back_list_label, use_container_width=True, type="secondary"):
+        if st.button(back_list_label, use_container_width=True, type="secondary", key="back_to_list_top"):
             back_to_radio_list()
             st.rerun()
 
@@ -886,7 +886,7 @@ with main_area.container():
                 with row2_col1:
                     if st.button("📋 " + (T.get("back_to_list", "Torna alla Lista") if LANG_CODE == "IT" else "Back to List"), 
                                use_container_width=True, 
-                               type="secondary"):
+                               type="secondary", key="back_to_list_actions"):
                         back_to_radio_list()
                         st.rerun()
                 
