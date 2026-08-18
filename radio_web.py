@@ -27,6 +27,7 @@ PASSWORD = os.getenv("NAVIDROME_PASS", "")
 SALT = os.getenv("NAVIDROME_SALT", "")
 TOKEN = hashlib.md5((PASSWORD + SALT).encode("utf-8")).hexdigest()
 
+RADIO_BROWSER = "https://all.api.radio-browser.info/json"
 LANG_CODE = os.getenv("APP_LANG", "IT").upper()
 T = TRANSLATIONS.get(LANG_CODE, TRANSLATIONS["IT"])
 VERSION = f"6.2.4-{LANG_CODE}"
@@ -125,8 +126,67 @@ def get_all_my_radios_with_details():
             return [stations]
         return stations if stations else []
     except Exception as e:
-        st.error(f"Errore recupero radio: {e}")
+        st.error(f"{'Errore recupero radio' if LANG_CODE == 'IT' else 'Error fetching radios'}: {e}")
         return []
+
+# ============================================================
+# REDESIGN 2026-08-18 (bsorescu): metadate pentru lista My Radios.
+# Calitatea se măsoară DIN STREAM (icy-br + Content-Type) — stațiile
+# importate manual nu există în Radio-Browser, deci doar proba directă
+# acoperă tot. Voturile vin din Radio-Browser (byurl), unde există.
+# Un singur cache pe întreaga listă; probele rulează în paralel.
+# ============================================================
+@st.cache_data(ttl=3600, show_spinner="Analyzing streams…")
+def get_stations_meta(urls: tuple):
+    import concurrent.futures
+
+    def probe(u):
+        meta = {"codec": "N/D", "bitrate": 0, "votes": None}
+        try:
+            r = requests.get(u, timeout=4, stream=True,
+                             headers={"Icy-MetaData": "1"})
+            ct = r.headers.get("Content-Type", "").lower()
+            try:
+                meta["bitrate"] = int(
+                    (r.headers.get("icy-br", "0").split(",")[0] or "0").strip())
+            except ValueError:
+                pass
+            r.close()
+            if "mpeg" in ct:
+                meta["codec"] = "MP3"
+            elif "aacp" in ct:
+                meta["codec"] = "AAC+"
+            elif "aac" in ct:
+                meta["codec"] = "AAC"
+            elif ct.startswith("audio/"):
+                meta["codec"] = ct.split("/")[-1].upper()
+        except Exception:
+            pass
+        try:
+            rb = requests.get(f"{RADIO_BROWSER}/stations/byurl",
+                              params={"url": u}, timeout=5)
+            hits = rb.json()
+            if hits:
+                meta["votes"] = hits[0].get("votes", 0)
+        except Exception:
+            pass
+        return meta
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        return dict(zip(urls, ex.map(probe, urls)))
+
+
+def quality_badge(codec, bitrate):
+    """Etichetă onestă: AAC(+) la același bitrate sună ca ~2× MP3."""
+    if not bitrate:
+        return "grey", "Unknown"
+    effective = bitrate * 2 if "AAC" in codec else bitrate
+    if effective >= 192:
+        return "green", "High Quality"
+    if effective >= 128:
+        return "blue", "Standard Quality"
+    return "orange", "Low Quality"
+
 
 def sync_to_sel():
     st.session_state.search_country_text = ""
@@ -206,7 +266,7 @@ def get_radios():
             return [stations]
         return stations
     except Exception as e:
-        st.error(f"Errore get_radios: {e}")
+        st.error(f"{'Errore get_radios' if LANG_CODE == 'IT' else 'Error in get_radios'}: {e}")
         return []
 
 def delete_radio(radio_id):
@@ -558,7 +618,7 @@ with main_area.container():
                 else:
                     st.warning(T.get("no_preview", "Anteprima non disponibile") if LANG_CODE == "IT" else "Preview not available")
             except Exception as e:
-                st.error(f"Errore player: {str(e)}")
+                st.error(f"{'Errore player' if LANG_CODE == 'IT' else 'Player error'}: {str(e)}")
             
             st.divider()
             
@@ -616,8 +676,8 @@ with main_area.container():
                                     st.session_state.my_radios = get_all_my_radios_with_details()
                                     st.rerun()
                                 else:
-                                    err_msg = res.get('subsonic-response', {}).get('error', {}).get('message', 'Errore sconosciuto')
-                                    st.error(f"❌ Errore: {err_msg}")
+                                    err_msg = res.get('subsonic-response', {}).get('error', {}).get('message', 'Errore sconosciuto' if LANG_CODE == 'IT' else 'Unknown error')
+                                    st.error(f"❌ {'Errore' if LANG_CODE == 'IT' else 'Error'}: {err_msg}")
                     
                     if cancelled:
                         cancel_edit()
@@ -643,11 +703,11 @@ with main_area.container():
                         try:
                             test_resp = requests.get(fixed_url, timeout=5, stream=True)
                             if test_resp.status_code == 200:
-                                st.success("✅ Stream raggiungibile!")
+                                st.success("✅ " + ("Stream raggiungibile!" if LANG_CODE == "IT" else "Stream reachable!"))
                             else:
                                 st.warning(f"⚠️ Status: {test_resp.status_code}")
                         except Exception as e:
-                            st.error(f"❌ Errore: {str(e)}")
+                            st.error(f"❌ {'Errore' if LANG_CODE == 'IT' else 'Error'}: {str(e)}")
                 
                 with row1_col2:
                     if st.button("✏️ " + (T.get("edit", "Modifica") if LANG_CODE == "IT" else "Edit"), 
@@ -700,7 +760,7 @@ with main_area.container():
                                     st.rerun()
                                 else:
                                     st.error(f"❌ Status non è 'ok': {res.get('subsonic-response', {}).get('status')}")
-                                    err = res.get('subsonic-response', {}).get('error', {}).get('message', 'Errore sconosciuto')
+                                    err = res.get('subsonic-response', {}).get('error', {}).get('message', 'Errore sconosciuto' if LANG_CODE == 'IT' else 'Unknown error')
                                     st.error(f"❌ {err}")
                         
                         with col_cancel:
@@ -732,35 +792,73 @@ with main_area.container():
                 st.warning(T.get("no_radios_found", "Nessuna radio trovata in Navidrome" if LANG_CODE == "IT" 
                                else "No radios found in Navidrome"))
             else:
-                st.success(f"📻 {len(st.session_state.my_radios)} " + 
-                          (T.get("radios_count", "radio trovate") if LANG_CODE == "IT" else "radios found"))
-                
-                cols_per_row = 3
                 radios = st.session_state.my_radios
-                
+                st.success(f"📻 {len(radios)} " +
+                          (T.get("radios_count", "radio trovate") if LANG_CODE == "IT" else "radios found"))
+
+                # Redesign 2026-08-18: carduri bogate — calitate măsurată din
+                # stream, voturi Radio-Browser (unde există), link site,
+                # play/stop inline (un singur player activ odată).
+                stream_urls = tuple(
+                    fix_url(r.get('streamUrl', r.get('url', ''))) for r in radios)
+                meta = get_stations_meta(stream_urls)
+
+                if 'playing_id' not in st.session_state:
+                    st.session_state.playing_id = None
+
+                cols_per_row = 2
                 for i in range(0, len(radios), cols_per_row):
                     cols = st.columns(cols_per_row)
-                    
                     for j in range(cols_per_row):
                         idx = i + j
-                        if idx < len(radios):
-                            radio = radios[idx]
-                            with cols[j]:
-                                hp = radio.get('homePageUrl', '').strip()
-                                icona = f"https://www.google.com/s2/favicons?sz=64&domain={hp}" if hp else None
-                                
-                                with st.container():
+                        if idx >= len(radios):
+                            continue
+                        radio = radios[idx]
+                        rid = radio.get('id')
+                        stream_url = stream_urls[idx]
+                        m = meta.get(stream_url, {})
+                        hp = radio.get('homePageUrl', '').strip()
+                        icona = f"https://www.google.com/s2/favicons?sz=64&domain={hp}" if hp else None
+                        with cols[j]:
+                            with st.container(border=True):
+                                head = st.columns([1, 6], vertical_alignment="center")
+                                with head[0]:
                                     if icona:
                                         st.image(icona, width=40)
-                                    
-                                    st.markdown(f"**{radio.get('name', 'Unknown')[:25]}**")
-                                    
-                                    det_label = T.get("btn_details", "🔍 Dettagli") if LANG_CODE == "IT" else "🔍 Details"
-                                    if st.button(det_label, key=f"det_{radio.get('id')}", use_container_width=True):
+                                    else:
+                                        st.markdown("### 📻")
+                                with head[1]:
+                                    st.markdown(f"**{radio.get('name', 'Unknown')}**")
+
+                                codec = m.get("codec", "N/D")
+                                br = m.get("bitrate", 0)
+                                q_color, q_label = quality_badge(codec, br)
+                                info_bits = [f"**{codec}** @ {br or '?'} kbps",
+                                             f":{q_color}[{q_label}]"]
+                                if m.get("votes") is not None:
+                                    info_bits.append(f"⭐ {m['votes']}")
+                                if hp:
+                                    info_bits.append(
+                                        f"🔗 [{'Sito' if LANG_CODE == 'IT' else 'Site'}]({hp})")
+                                st.markdown(" · ".join(info_bits))
+
+                                is_playing = st.session_state.playing_id == rid
+                                bcols = st.columns(2)
+                                with bcols[0]:
+                                    play_label = "⏹ Stop" if is_playing else "▶️ Play"
+                                    if st.button(play_label, key=f"play_{rid}",
+                                                 use_container_width=True,
+                                                 type="secondary" if is_playing else "primary"):
+                                        st.session_state.playing_id = None if is_playing else rid
+                                        st.rerun()
+                                with bcols[1]:
+                                    det_label = "🔍 " + ("Dettagli" if LANG_CODE == "IT" else "Details")
+                                    if st.button(det_label, key=f"det_{rid}", use_container_width=True):
                                         select_radio_for_details(radio)
                                         st.rerun()
-                                    
-                                    st.divider()
+
+                                if is_playing:
+                                    st.audio(stream_url, format="audio/mp3", autoplay=True)
     
     # ============================================
     # MODALITÀ RICERCA (ORIGINALE - INVARIATA)
