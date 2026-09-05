@@ -782,7 +782,7 @@ if st.session_state.view_mode == "search" and st.session_state.add_mode:
                 )
         
         if st.session_state.get('stage') == 1:
-            st.button(T["btn_home"], on_click=reset_home, use_container_width=True)
+            st.button(T["btn_home"], on_click=reset_home, use_container_width=True, key="btn_home_search_panel")
 
 # Manage mode: contextual back-to-list button (back-to-search lives in header)
 else:
@@ -1273,7 +1273,7 @@ with main_area.container():
                     st.rerun()
             else:
                 st.warning(T["no_results"])
-                st.button(T["btn_home"], on_click=reset_home, use_container_width=True)
+                st.button(T["btn_home"], on_click=reset_home, use_container_width=True, key="btn_home_no_results")
 
 # Footer
 start_ping = time.time()
