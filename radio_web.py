@@ -183,14 +183,24 @@ def get_stations_meta(urls: tuple):
 
 @st.cache_data(ttl=30, show_spinner=False)
 def get_play_counts():
-    """Contoarele de la radio-relay: {url: {plays, seconds}} (persistente).
+    """Contoarele de la radio-relay: {url: {plays, seconds, rank_plays,
+    rank_seconds}} (persistente). plays/seconds = istoric brut, afișat ca
+    atare; rank_* = decădere pe recență (radio-relay.py, HALF_LIFE_DAYS),
+    folosite doar la sortare — altfel un post testat intens o singură dată
+    rămâne #1 permanent, indiferent ce se ascultă acum (2026-10-15).
     Lipsa releului = dict gol, lista rămâne alfabetică — degradare, nu
-    eroare. Schema veche (int) e normalizată defensiv."""
+    eroare. Schema veche (int sau fără rank_*) e normalizată defensiv."""
     try:
         r = requests.get("http://radio-relay:8502/relay/counts", timeout=4)
         raw = r.json()
-        return {k: (v if isinstance(v, dict) else {"plays": v, "seconds": 0})
-                for k, v in raw.items()}
+        out = {}
+        for k, v in raw.items():
+            if not isinstance(v, dict):
+                v = {"plays": v, "seconds": 0}
+            v.setdefault("rank_plays", v.get("plays", 0))
+            v.setdefault("rank_seconds", v.get("seconds", 0))
+            out[k] = v
+        return out
     except Exception:
         return {}
 
@@ -343,9 +353,10 @@ def render_my_radios_list(filter_query: str = ""):
 
     def _rank(r):
         c = counts.get(unwrap_relay(fix_url(r.get('streamUrl', r.get('url', '')))),
-                       {"plays": 0, "seconds": 0})
-        # ponderarea principală = TIMPUL ascultat; pornirile departajează
-        return (-c["seconds"], -c["plays"], r.get('name', '').lower())
+                       {"rank_seconds": 0, "rank_plays": 0})
+        # ponderarea principală = TIMPUL ascultat, cu decădere pe recență
+        # (radio-relay.py); pornirile departajează
+        return (-c["rank_seconds"], -c["rank_plays"], r.get('name', '').lower())
 
     radios = sorted(all_radios, key=_rank)
     if filter_query:
